@@ -120,6 +120,41 @@
                 <div id="bulkResult" class="alert alert-info mt-4" style="display: none;">
                     <i class="fas fa-spinner fa-spin"></i> <span id="resultMessage">Starting...</span>
                 </div>
+
+                <!-- Verify IPO Status Section -->
+                <div class="card mt-5" style="background: #f8f9fa; border: 2px dashed #007bff;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-search-check"></i> Verify IPO Application Status
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Check if an IPO application was successful for a specific account</p>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label"><strong>Select Account</strong></label>
+                                <select class="form-control" id="verifyAccountSelect">
+                                    <option value="">-- Choose an account --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label"><strong>IPO Name</strong></label>
+                                <input type="text" class="form-control" id="verifyIpoName" placeholder="e.g., ABC Company IPO">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button class="btn btn-primary w-100" onclick="quickVerifyIPO()">
+                                    <i class="fas fa-check-circle"></i> Verify Status
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="verifyResult" class="alert" style="display: none; margin-top: 15px;">
+                            <!-- Result will be displayed here -->
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Application History Tab -->

@@ -5,6 +5,9 @@ const STORAGE_KEY = 'ipo_applier_accounts';
 document.addEventListener('DOMContentLoaded', () => {
     loadAccountsFromStorage();
     loadAccountsForCheckboxes();
+    // Also populate verify dropdown on page load
+    const accounts = getAccountsFromStorage();
+    populateVerifyAccountDropdown(accounts);
 });
 
 // ===== LOCAL STORAGE MANAGEMENT =====
@@ -103,6 +106,9 @@ async function loadAccountsForCheckboxes() {
     document.querySelectorAll('.account-selector').forEach(checkbox => {
         checkbox.addEventListener('change', updateSelectedCount);
     });
+
+    // Also populate the verify account dropdown
+    populateVerifyAccountDropdown(accounts);
 }
 
 function resetAccountForm() {
@@ -159,6 +165,8 @@ async function saveAccount() {
         bootstrap.Modal.getInstance(document.getElementById('accountModal')).hide();
         loadAccountsFromStorage();
         loadAccountsForCheckboxes();
+        const accounts = getAccountsFromStorage();
+        populateVerifyAccountDropdown(accounts);
     } catch (error) {
         console.error('Error saving account:', error);
         showAlert('Error saving account', 'danger');
@@ -207,6 +215,7 @@ async function deleteAccount(accountId) {
         showAlert('Account deleted successfully', 'success');
         loadAccountsFromStorage();
         loadAccountsForCheckboxes();
+        populateVerifyAccountDropdown(accounts);
     } catch (error) {
         console.error('Error deleting account:', error);
         showAlert('Error deleting account', 'danger');
@@ -681,6 +690,102 @@ function clearApplicationHistory() {
     if (confirm('Are you sure you want to clear all application history? This action cannot be undone.')) {
         // Note: This would need to be implemented on the server side
         alert('History clearing is managed by the server. Contact administrator if needed.');
+    }
+}
+
+// ===== QUICK VERIFY IPO STATUS =====
+
+function populateVerifyAccountDropdown(accounts) {
+    const dropdown = document.getElementById('verifyAccountSelect');
+    if (!dropdown) return;
+    
+    const currentValue = dropdown.value;
+    dropdown.innerHTML = '<option value="">-- Choose an account --</option>';
+    
+    accounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = account.name;
+        option.textContent = `${account.name} (DP ${account.dp})`;
+        dropdown.appendChild(option);
+    });
+    
+    // Restore previous selection if it still exists
+    dropdown.value = currentValue;
+}
+
+async function quickVerifyIPO() {
+    const accountName = document.getElementById('verifyAccountSelect').value;
+    const ipoName = document.getElementById('verifyIpoName').value.trim();
+    const verifyResult = document.getElementById('verifyResult');
+    
+    if (!accountName) {
+        verifyResult.className = 'alert alert-warning';
+        verifyResult.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Please select an account';
+        verifyResult.style.display = 'block';
+        return;
+    }
+    
+    if (!ipoName) {
+        verifyResult.className = 'alert alert-warning';
+        verifyResult.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Please enter IPO name';
+        verifyResult.style.display = 'block';
+        return;
+    }
+    
+    verifyResult.className = 'alert alert-info';
+    verifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    verifyResult.style.display = 'block';
+    
+    try {
+        const response = await fetch(`${API_URL}/verify-ipo-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                ipoName: ipoName, 
+                accountName: accountName 
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.applied) {
+                verifyResult.className = 'alert alert-success';
+                verifyResult.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+                        <div>
+                            <strong>✓ Successfully Applied!</strong>
+                            <br><small>IPO: <strong>${result.ipoName}</strong></small>
+                            <br><small>Account: <strong>${result.accountName}</strong></small>
+                            <br><small style="color: #666;">Applied on: ${new Date(result.appliedAt).toLocaleString()}</small>
+                            <br><small style="color: #666;">Button State: <span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px;"><strong>Edit</strong></span></small>
+                        </div>
+                    </div>
+                `;
+            } else {
+                verifyResult.className = 'alert alert-danger';
+                verifyResult.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-times-circle" style="font-size: 24px;"></i>
+                        <div>
+                            <strong>✗ Not Applied Yet</strong>
+                            <br><small>IPO: <strong>${result.ipoName}</strong></small>
+                            <br><small>Account: <strong>${result.accountName}</strong></small>
+                            <br><small style="color: #666;">No application record found for this IPO</small>
+                            <br><small style="color: #666;">Button State: <span style="background: #f44336; color: white; padding: 2px 6px; border-radius: 3px;"><strong>Apply</strong></span></small>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            verifyResult.className = 'alert alert-danger';
+            verifyResult.innerHTML = '<i class="fas fa-times-circle"></i> Error verifying IPO status';
+        }
+    } catch (error) {
+        console.error('Error verifying IPO status:', error);
+        verifyResult.className = 'alert alert-danger';
+        verifyResult.innerHTML = `<i class="fas fa-times-circle"></i> Error: ${error.message}`;
     }
 }
 
