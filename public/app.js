@@ -900,9 +900,6 @@ async function bulkVerifyAllIPOs() {
         return;
     }
     
-    bulkVerifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <strong>Visiting Mero Share website...</strong><br><small>Checking real-time status for all IPOs. This may take a few moments.</small>';
-    bulkVerifyResult.style.display = 'block';
-    
     const results = [];
     const uniqueRecords = {};
     
@@ -914,9 +911,27 @@ async function bulkVerifyAllIPOs() {
         }
     });
     
-    // Verify each in real-time
-    for (const key in uniqueRecords) {
-        const record = uniqueRecords[key];
+    const recordsArray = Object.values(uniqueRecords);
+    let verifiedCount = 0;
+    
+    // Verify each one by one
+    for (const record of recordsArray) {
+        verifiedCount++;
+        
+        // Show progress
+        bulkVerifyResult.innerHTML = `
+            <i class="fas fa-spinner fa-spin"></i> 
+            <strong>Verifying Accounts (${verifiedCount}/${recordsArray.length})</strong><br>
+            <small>Current: <strong>${record.accountName}</strong> - ${record.ipoName}</small>
+            <div class="progress" style="margin-top: 10px; height: 20px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     style="width: ${(verifiedCount / recordsArray.length) * 100}%">
+                     ${Math.round((verifiedCount / recordsArray.length) * 100)}%
+                </div>
+            </div>
+        `;
+        bulkVerifyResult.style.display = 'block';
+        
         try {
             const response = await fetch(`${API_URL}/verify-ipo-status`, {
                 method: 'POST',
@@ -936,6 +951,17 @@ async function bulkVerifyAllIPOs() {
                     status: result.buttonState || (result.applied ? 'Edit' : 'Apply'),
                     verified: result.success
                 });
+                console.log(`✓ Verified: ${record.accountName} - ${record.ipoName}`);
+            } else {
+                const errorData = await response.json();
+                results.push({
+                    account: record.accountName,
+                    ipo: record.ipoName,
+                    applied: null,
+                    status: 'Error: ' + (errorData.error || 'Unknown error'),
+                    verified: false
+                });
+                console.log(`✗ Failed: ${record.accountName} - ${record.ipoName}`);
             }
         } catch (error) {
             console.error('Error verifying:', error);
@@ -943,13 +969,18 @@ async function bulkVerifyAllIPOs() {
                 account: record.accountName,
                 ipo: record.ipoName,
                 applied: null,
-                status: 'Error',
+                status: `Error: ${error.message}`,
                 verified: false
             });
         }
+        
+        // Add delay between verifications (2 seconds) to avoid overwhelming server
+        if (verifiedCount < recordsArray.length) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
     }
     
-    // Display results
+    // Display final results
     displayBulkVerifyResults(results);
 }
 
