@@ -13,23 +13,52 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== LOCAL STORAGE MANAGEMENT =====
 
 function getAccountsFromStorage() {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const accounts = stored ? JSON.parse(stored) : [];
+        console.log('Retrieved accounts from storage:', accounts);
+        return accounts;
+    } catch (error) {
+        console.error('Error reading from localStorage:', error);
+        return [];
+    }
 }
 
 function saveAccountsToStorage(accounts) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+    try {
+        const jsonStr = JSON.stringify(accounts);
+        localStorage.setItem(STORAGE_KEY, jsonStr);
+        console.log('Saved accounts to storage. Total accounts:', accounts.length);
+        
+        // Verify it was saved
+        const verify = localStorage.getItem(STORAGE_KEY);
+        console.log('Verification - accounts in storage:', JSON.parse(verify).length);
+        return true;
+    } catch (error) {
+        console.error('Error writing to localStorage:', error);
+        showAlert('Error saving to browser storage: ' + error.message, 'danger');
+        return false;
+    }
 }
 
 async function syncAccountsToServer(accounts) {
     try {
-        await fetch(`${API_URL}/sync-accounts`, {
+        console.log('Syncing accounts to server:', accounts.length);
+        const response = await fetch(`${API_URL}/sync-accounts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ accounts })
         });
+        
+        if (!response.ok) {
+            console.warn('Server sync returned non-200 status:', response.status);
+        } else {
+            const result = await response.json();
+            console.log('Server sync successful:', result);
+        }
     } catch (error) {
         console.warn('Could not sync accounts to server:', error);
+        // Don't show alert here - it's okay if server sync fails
     }
 }
 
@@ -112,9 +141,18 @@ async function loadAccountsForCheckboxes() {
 }
 
 function resetAccountForm() {
-    document.getElementById('accountForm').reset();
+    const form = document.getElementById('accountForm');
+    if (form) {
+        form.reset();
+    }
     document.getElementById('accountId').value = '';
     document.getElementById('nameInput').value = '';
+    document.getElementById('dpInput').value = '';
+    document.getElementById('usernameInput').value = '';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('crnInput').value = '';
+    document.getElementById('pin1Input').value = '';
+    document.getElementById('pin2Input').value = '';
     document.getElementById('accountModalTitle').textContent = 'Add New Account';
 }
 
@@ -135,6 +173,7 @@ async function saveAccount() {
 
     try {
         const accounts = getAccountsFromStorage();
+        console.log('Current accounts:', accounts);
         
         if (accountId) {
             // Update existing
@@ -148,28 +187,51 @@ async function saveAccount() {
             }
         } else {
             // Add new
+            const newId = 'acc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             accounts.push({
-                id: 'acc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                id: newId,
                 name, dp, username, password, crn_number: crn, pin_1: pin1 || null, pin_2: pin2 || null,
                 created_at: new Date().toISOString()
             });
+            console.log('Added new account with ID:', newId);
         }
         
+        console.log('Saving accounts to storage:', accounts);
         saveAccountsToStorage(accounts);
+        
+        console.log('Syncing accounts to server');
         await syncAccountsToServer(accounts);
         
         showAlert(
             accountId ? 'Account updated successfully' : 'Account added successfully',
             'success'
         );
-        bootstrap.Modal.getInstance(document.getElementById('accountModal')).hide();
+        
+        console.log('Reloading accounts display');
         loadAccountsFromStorage();
         loadAccountsForCheckboxes();
-        const accounts = getAccountsFromStorage();
-        populateVerifyAccountDropdown(accounts);
+        const updatedAccounts = getAccountsFromStorage();
+        populateVerifyAccountDropdown(updatedAccounts);
+        
+        // Close modal with better error handling
+        setTimeout(() => {
+            const modal = document.getElementById('accountModal');
+            if (modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                } else {
+                    // Create new instance and hide
+                    const newModal = new bootstrap.Modal(modal);
+                    newModal.hide();
+                }
+                resetAccountForm();
+            }
+        }, 100);
+        
     } catch (error) {
         console.error('Error saving account:', error);
-        showAlert('Error saving account', 'danger');
+        showAlert('Error saving account: ' + error.message, 'danger');
     }
 }
 
