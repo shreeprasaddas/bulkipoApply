@@ -168,8 +168,8 @@ async function saveAccount() {
     const pin1 = document.getElementById('pin1Input').value.trim();
     const pin2 = document.getElementById('pin2Input').value.trim();
 
-    if (!name || !dp || !username || !password || !crn) {
-        showAlert('Please fill in all required fields', 'warning');
+    if (!name || !dp || !username || !password) {
+        showAlert('Please fill in all required fields (Name, DP, Username, Password)', 'warning');
         return;
     }
 

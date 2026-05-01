@@ -59,8 +59,8 @@ app.post('/api/accounts', (req, res) => {
     try {
         const { name, dp, username, password, crn_number, pin_1, pin_2 } = req.body;
         
-        if (!name || !dp || !username || !password || !crn_number) {
-            return res.status(400).send('Missing required fields: name, dp, username, password, crn_number');
+        if (!name || !dp || !username || !password) {
+            return res.status(400).send('Missing required fields: name, dp, username, password');
         }
         
         const id = uuidv4();
@@ -103,7 +103,7 @@ app.put('/api/accounts/:id', (req, res) => {
         const { id } = req.params;
         const { name, dp, username, password, crn_number, pin_1, pin_2 } = req.body;
         
-        if (!name || !dp || !username || !password || !crn_number) {
+        if (!name || !dp || !username || !password) {
             return res.status(400).send('Missing required fields');
         }
         
@@ -317,7 +317,7 @@ app.post('/api/validate-credentials', async (req, res) => {
     try {
         const { name, dp, username, password, crn_number } = req.body;
         
-        if (!name || !dp || !username || !password || !crn_number) {
+        if (!name || !dp || !username || !password) {
             return res.status(400).json({ 
                 success: false, 
                 error: 'Missing required fields' 
