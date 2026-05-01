@@ -312,6 +312,143 @@ app.post('/api/verify-ipo-status', async (req, res) => {
     }
 });
 
+// Validate account credentials
+app.post('/api/validate-credentials', async (req, res) => {
+    try {
+        const { name, dp, username, password, crn_number } = req.body;
+        
+        if (!name || !dp || !username || !password || !crn_number) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing required fields' 
+            });
+        }
+        
+        console.log(`\n[API] Validating credentials for: ${name}`);
+        
+        // Import Puppeteer for validation
+        import('puppeteer').then(async (puppeteer) => {
+            let browser;
+            try {
+                browser = await puppeteer.default.launch({ headless: true });
+                const page = await browser.newPage();
+                
+                // Navigate to login page
+                console.log('Navigating to Mero Share...');
+                await page.goto('https://meroshare.cdsc.com.np/', { waitUntil: 'networkidle2', timeout: 10000 });
+                
+                // Wait for DP dropdown
+                await page.waitForSelector('select.select2-hidden-accessible', { timeout: 5000 });
+                
+                // Try to select DP
+                try {
+                    await page.click('.select2-selection--single');
+                    await page.waitForSelector('.select2-results__option', { timeout: 5000 });
+                    
+                    const optionToClick = await page.evaluate((dpValue) => {
+                        const options = Array.from(document.querySelectorAll('.select2-results__option'));
+                        const option = options.find(opt => opt.textContent.includes(dpValue));
+                        return option ? option.getAttribute('data-select2-id') : null;
+                    }, `(${dp})`);
+                    
+                    if (optionToClick) {
+                        await page.click(`[data-select2-id="${optionToClick}"]`);
+                    } else {
+                        throw new Error('Invalid DP: Not found in dropdown');
+                    }
+                } catch (dpError) {
+                    throw new Error(`DP Error: ${dpError.message}`);
+                }
+                
+                // Wait for dropdown to close
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Enter username
+                await page.type('#username', username, { delay: 50 });
+                
+                // Enter password
+                await page.type('input[name="password"]', password, { delay: 50 });
+                
+                // Click login button
+                await page.waitForSelector('button.sign-in', { timeout: 5000 });
+                
+                try {
+                    await page.click('button.sign-in');
+                } catch (e) {
+                    await page.focus('button.sign-in');
+                    await page.keyboard.press('Enter');
+                }
+                
+                // Wait for navigation
+                const navigationSuccess = await Promise.race([
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 })
+                        .then(() => true)
+                        .catch(() => false),
+                    new Promise(resolve => setTimeout(() => resolve(false), 8000))
+                ]);
+                
+                // Check if we're on the dashboard (login successful)
+                const currentUrl = page.url();
+                const isLoggedIn = currentUrl.includes('#/dashboard') || currentUrl.includes('#/asba') || !currentUrl.includes('login');
+                
+                await browser.close();
+                
+                if (isLoggedIn && navigationSuccess) {
+                    console.log(`✓ Credentials validated successfully for ${name}`);
+                    res.json({ 
+                        success: true, 
+                        message: 'Credentials are valid' 
+                    });
+                } else {
+                    console.log(`✗ Login failed: Navigation unsuccessful or still on login page`);
+                    res.status(401).json({ 
+                        success: false, 
+                        error: 'Username or password is incorrect' 
+                    });
+                }
+            } catch (error) {
+                console.error(`❌ Validation error: ${error.message}`);
+                
+                if (browser) {
+                    try {
+                        await browser.close();
+                    } catch (e) {
+                        // Ignore close error
+                    }
+                }
+                
+                // Determine error message
+                let errorMessage = error.message;
+                if (errorMessage.includes('DP')) {
+                    errorMessage = 'Invalid DP number';
+                } else if (errorMessage.includes('Username') || errorMessage.includes('password')) {
+                    errorMessage = 'Username or password is incorrect';
+                } else if (errorMessage.includes('Timeout')) {
+                    errorMessage = 'Connection timeout - please check your internet';
+                }
+                
+                res.status(401).json({ 
+                    success: false, 
+                    error: errorMessage 
+                });
+            }
+        }).catch(err => {
+            console.error('Puppeteer import error:', err);
+            res.status(500).json({ 
+                success: false, 
+                error: 'Validation service error' 
+            });
+        });
+        
+    } catch (error) {
+        console.error('Validation error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
 // Serve main page
 app.get('/', (req, res) => {
     res.sendFile(join(__dirname, 'public', 'index.html'));

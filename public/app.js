@@ -174,6 +174,37 @@ async function saveAccount() {
     }
 
     try {
+        // Validate credentials only for NEW accounts
+        if (!accountId) {
+            console.log('Validating credentials for new account...');
+            showAlert('Validating credentials... Please wait', 'info');
+            
+            try {
+                const validationResponse = await fetch(`${API_URL}/validate-credentials`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name, dp, username, password, crn_number: crn
+                    })
+                });
+                
+                const validationResult = await validationResponse.json();
+                
+                if (!validationResult.success) {
+                    console.error('Credential validation failed:', validationResult.error);
+                    showAlert(`❌ ${validationResult.error}`, 'danger');
+                    return;
+                }
+                
+                console.log('✓ Credentials validated successfully');
+                showAlert('✓ Credentials are valid! Saving account...', 'success');
+            } catch (validationError) {
+                console.error('Error validating credentials:', validationError);
+                showAlert(`Error validating credentials: ${validationError.message}`, 'danger');
+                return;
+            }
+        }
+        
         const accounts = getAccountsFromStorage();
         console.log('Current accounts:', accounts);
         
