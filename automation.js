@@ -679,13 +679,13 @@ export async function verifyIPOStatusLive(account, ipoName) {
         // Select DP
         const dpSelect = 'select.select2-hidden-accessible';
         await page.select(dpSelect, account.dp);
-        await page.waitForTimeout(500);
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Select Account
         const accountSelect = 'select.select2-hidden-accessible:nth-of-type(2)';
         const accountNumber = `${account.dp} - ${account.name}`;
         await page.select(accountSelect, account.crn_number);
-        await page.waitForTimeout(500);
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Enter Username
         await page.type('input[placeholder*="username"]', account.username, { delay: 50 });
