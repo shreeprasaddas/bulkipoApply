@@ -43,6 +43,13 @@
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#accountModal" onclick="resetAccountForm()">
                             <i class="fas fa-plus"></i> Add New Account
                         </button>
+                        <button class="btn btn-info" onclick="exportAccountsData()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                        <button class="btn btn-warning" onclick="triggerFileImport()">
+                            <i class="fas fa-upload"></i> Import
+                        </button>
+                        <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importAccountsData(event)">
                     </div>
                 </div>
 

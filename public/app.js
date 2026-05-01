@@ -319,6 +319,145 @@ async function deleteAccount(accountId) {
     }
 }
 
+// ===== IMPORT/EXPORT ACCOUNT DATA =====
+
+function exportAccountsData() {
+    try {
+        const accounts = getAccountsFromStorage();
+        
+        if (!accounts || accounts.length === 0) {
+            showAlert('No accounts to export', 'warning');
+            return;
+        }
+        
+        // Create export data with timestamp
+        const exportData = {
+            exportedAt: new Date().toISOString(),
+            version: '1.0',
+            totalAccounts: accounts.length,
+            accounts: accounts.map(acc => ({
+                name: acc.name,
+                dp: acc.dp,
+                username: acc.username,
+                password: acc.password,
+                crn_number: acc.crn_number || '',
+                pin_1: acc.pin_1 || '',
+                pin_2: acc.pin_2 || ''
+            }))
+        };
+        
+        // Convert to JSON string with pretty formatting
+        const jsonString = JSON.stringify(exportData, null, 2);
+        
+        // Create blob and download
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ipo-accounts-backup-${new Date().getTime()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showAlert(`✓ Exported ${accounts.length} account(s) successfully`, 'success');
+        console.log('Accounts exported:', accounts.length);
+    } catch (error) {
+        console.error('Error exporting accounts:', error);
+        showAlert('Error exporting accounts: ' + error.message, 'danger');
+    }
+}
+
+function triggerFileImport() {
+    const fileInput = document.getElementById('importFileInput');
+    fileInput.click();
+}
+
+async function importAccountsData(event) {
+    try {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+        
+        // Validate file type
+        if (!file.name.endsWith('.json')) {
+            showAlert('Please select a valid JSON file', 'danger');
+            return;
+        }
+        
+        // Read file content
+        const fileContent = await file.text();
+        const importedData = JSON.parse(fileContent);
+        
+        // Validate import data structure
+        if (!importedData.accounts || !Array.isArray(importedData.accounts)) {
+            showAlert('Invalid file format. Expected accounts array.', 'danger');
+            return;
+        }
+        
+        if (importedData.accounts.length === 0) {
+            showAlert('No accounts found in file', 'warning');
+            return;
+        }
+        
+        // Ask for confirmation
+        const confirmImport = confirm(
+            `This will import ${importedData.accounts.length} account(s).\n\n` +
+            'Imported at: ' + new Date(importedData.exportedAt).toLocaleString() + '\n\n' +
+            'Continue?'
+        );
+        
+        if (!confirmImport) {
+            return;
+        }
+        
+        // Get existing accounts
+        const existingAccounts = getAccountsFromStorage() || [];
+        
+        // Import accounts
+        const newAccounts = importedData.accounts.map((importedAcc, index) => ({
+            id: 'acc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '_' + index,
+            name: importedAcc.name,
+            dp: importedAcc.dp,
+            username: importedAcc.username,
+            password: importedAcc.password,
+            crn_number: importedAcc.crn_number || null,
+            pin_1: importedAcc.pin_1 || null,
+            pin_2: importedAcc.pin_2 || null,
+            created_at: new Date().toISOString()
+        }));
+        
+        // Combine existing and new accounts
+        const allAccounts = [...existingAccounts, ...newAccounts];
+        
+        // Save to storage and sync to server
+        saveAccountsToStorage(allAccounts);
+        await syncAccountsToServer(allAccounts);
+        
+        // Reload display
+        loadAccountsFromStorage();
+        loadAccountsForCheckboxes();
+        const updatedAccounts = getAccountsFromStorage();
+        populateVerifyAccountDropdown(updatedAccounts);
+        populateVerifyAccountsList(updatedAccounts);
+        
+        showAlert(`✓ Imported ${newAccounts.length} account(s) successfully`, 'success');
+        console.log('Accounts imported:', newAccounts.length);
+        
+        // Reset file input
+        event.target.value = '';
+    } catch (error) {
+        console.error('Error importing accounts:', error);
+        if (error instanceof SyntaxError) {
+            showAlert('Invalid JSON format in file', 'danger');
+        } else {
+            showAlert('Error importing accounts: ' + error.message, 'danger');
+        }
+        event.target.value = '';
+    }
+}
+
 // ===== BULK APPLICATION =====
 
 function updateSelectedCount() {
