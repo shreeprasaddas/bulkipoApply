@@ -552,6 +552,138 @@ function showAlert(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
 }
 
+// ===== APPLICATION HISTORY =====
+
+async function loadApplicationHistory() {
+    try {
+        const response = await fetch(`${API_URL}/history`);
+        if (response.ok) {
+            const history = await response.json();
+            displayApplicationHistory(history);
+        } else {
+            console.error('Failed to fetch application history');
+        }
+    } catch (error) {
+        console.error('Error loading application history:', error);
+    }
+}
+
+function displayApplicationHistory(history) {
+    const historyContainer = document.getElementById('applicationHistoryContainer');
+    
+    if (!historyContainer) {
+        // Container doesn't exist in current page, skip
+        return;
+    }
+    
+    if (!history || history.length === 0) {
+        historyContainer.innerHTML = '<div class="alert alert-info">No application history yet.</div>';
+        return;
+    }
+    
+    // Group by account and IPO
+    const grouped = {};
+    history.forEach(record => {
+        const key = `${record.accountName}-${record.ipoName}`;
+        if (!grouped[key]) {
+            grouped[key] = {
+                accountName: record.accountName,
+                ipoName: record.ipoName,
+                records: []
+            };
+        }
+        grouped[key].records.push(record);
+    });
+    
+    let html = `
+        <div class="application-history">
+            <h6 style="border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px;">
+                <i class="fas fa-history"></i> Application History (${history.length} records)
+            </h6>
+            
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Account</th>
+                            <th>IPO Name</th>
+                            <th>Quantity</th>
+                            <th>Applied Date</th>
+                            <th>Status</th>
+                            <th>Verify</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    Object.values(grouped).forEach(group => {
+        const latestRecord = group.records[group.records.length - 1];
+        const appliedDate = new Date(latestRecord.appliedAt).toLocaleString();
+        const status = latestRecord.status;
+        const statusBadge = status === 'success' 
+            ? '<span class="badge bg-success">✓ Applied</span>'
+            : '<span class="badge bg-danger">✗ Failed</span>';
+        
+        html += `
+            <tr>
+                <td><strong>${group.accountName}</strong></td>
+                <td>${group.ipoName}</td>
+                <td>${latestRecord.quantity}</td>
+                <td><small>${appliedDate}</small></td>
+                <td>${statusBadge}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick="verifyIPOStatus('${group.ipoName}', '${group.accountName}')">
+                        <i class="fas fa-search"></i> Check
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    historyContainer.innerHTML = html;
+}
+
+async function verifyIPOStatus(ipoName, accountName) {
+    try {
+        const response = await fetch(`${API_URL}/verify-ipo-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ipoName, accountName })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.applied) {
+                alert(`✓ IPO "${ipoName}" was successfully applied to "${accountName}" account on ${new Date(result.appliedAt).toLocaleString()}\n\nButton Status: ${result.buttonState}`);
+            } else {
+                alert(`✗ IPO "${ipoName}" has not been applied to "${accountName}" account yet.\n\nButton Status: ${result.buttonState}`);
+            }
+        } else {
+            alert('Error verifying IPO status');
+        }
+    } catch (error) {
+        console.error('Error verifying IPO status:', error);
+        alert('Error verifying IPO status: ' + error.message);
+    }
+}
+
+// Clear application history
+function clearApplicationHistory() {
+    if (confirm('Are you sure you want to clear all application history? This action cannot be undone.')) {
+        // Note: This would need to be implemented on the server side
+        alert('History clearing is managed by the server. Contact administrator if needed.');
+    }
+}
+
 // Handle Enter key in forms
 document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && e.target.closest('#accountForm')) {

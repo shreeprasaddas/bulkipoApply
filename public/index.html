@@ -26,6 +26,9 @@
             <li class="nav-item">
                 <a class="nav-link" id="apply-tab" data-bs-toggle="tab" href="#apply">Bulk Apply</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" id="history-tab" data-bs-toggle="tab" href="#history" onclick="loadApplicationHistory()">Application History</a>
+            </li>
         </ul>
 
         <!-- Tab Content -->
@@ -116,6 +119,27 @@
 
                 <div id="bulkResult" class="alert alert-info mt-4" style="display: none;">
                     <i class="fas fa-spinner fa-spin"></i> <span id="resultMessage">Starting...</span>
+                </div>
+            </div>
+
+            <!-- Application History Tab -->
+            <div id="history" class="tab-pane fade">
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <h3>Application History</h3>
+                        <p class="text-muted">View and verify all IPO applications</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-primary" onclick="loadApplicationHistory()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div id="applicationHistoryContainer" class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-spinner fa-spin"></i> Loading history...
+                    </div>
                 </div>
             </div>
         </div>

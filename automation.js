@@ -2,6 +2,31 @@ import puppeteer from 'puppeteer';
 
 let currentProcess = null;
 
+/**
+ * Store application history in memory (will be synced to client localStorage)
+ * Format: {
+ *   accountName: string,
+ *   accountId: string,
+ *   ipoName: string,
+ *   quantity: number,
+ *   appliedAt: ISO timestamp,
+ *   status: 'success' | 'failed'
+ * }
+ */
+let applicationHistory = [];
+
+export function getApplicationHistory() {
+    return applicationHistory;
+}
+
+export function storeApplicationHistory(record) {
+    applicationHistory.push({
+        ...record,
+        id: `${record.accountId}-${record.ipoName}-${Date.now()}`
+    });
+    console.log(`📝 Stored in history: ${record.accountName} - ${record.ipoName} - ${record.status}`);
+}
+
 export async function startBulkApplication(selectedAccounts, quantity = 10, onProgress = null) {
     try {
         console.log(`\n========== STARTING BULK IPO APPLICATION ==========`);
@@ -509,6 +534,17 @@ async function applyIPOForAccount(browser, account, quantity, processedCount, to
                                         if (applicationSuccess) {
                                             console.log(`✓✓✓ Successfully applied for: ${ipo.companyName} ✓✓✓`);
                                             ipoStatus.status = 'success';
+                                            
+                                            // Store in application history
+                                            storeApplicationHistory({
+                                                accountName: account.name,
+                                                accountId: account.id,
+                                                ipoName: ipo.companyName,
+                                                quantity: quantity,
+                                                appliedAt: new Date().toISOString(),
+                                                status: 'success'
+                                            });
+                                            
                                             pinEntered = true;
                                             break;
                                         } else {

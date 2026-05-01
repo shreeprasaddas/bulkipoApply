@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { startBulkApplication } from './automation.js';
+import { startBulkApplication, getApplicationHistory } from './automation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -262,6 +262,59 @@ app.get('/api/results/:processId', (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
+});
+
+// Get application history
+app.get('/api/history', (req, res) => {
+    try {
+        const history = getApplicationHistory();
+        res.json(history);
+    } catch (error) {
+        console.error('Error fetching history:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+// Verify IPO status (check if IPO shows Apply or Edit button on Mero Share)
+app.post('/api/verify-ipo-status', (req, res) => {
+    try {
+        const { ipoName, accountName } = req.body;
+        
+        if (!ipoName || !accountName) {
+            return res.status(400).send('Missing ipoName or accountName');
+        }
+        
+        const history = getApplicationHistory();
+        
+        // Search in history for this IPO application
+        const record = history.find(h => 
+            h.ipoName === ipoName && 
+            h.accountName === accountName && 
+            h.status === 'success'
+        );
+        
+        if (record) {
+            res.json({
+                applied: true,
+                ipoName: ipoName,
+                accountName: accountName,
+                appliedAt: record.appliedAt,
+                status: 'success',
+                buttonState: 'Edit' // If applied, button shows "Edit" not "Apply"
+            });
+        } else {
+            res.json({
+                applied: false,
+                ipoName: ipoName,
+                accountName: accountName,
+                status: 'not_applied',
+                buttonState: 'Apply' // If not applied, button shows "Apply"
+            });
+        }
+    } catch (error) {
+        console.error('Error verifying IPO status:', error);
+        res.status(500).send(error.message);
+    }
 });
 
 // Serve main page
