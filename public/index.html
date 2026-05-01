@@ -160,14 +160,29 @@
                 <div class="card mt-4" style="background: #fff3cd; border: 2px solid #ffc107;">
                     <div class="card-header bg-warning text-dark">
                         <h5 class="mb-0">
-                            <i class="fas fa-tasks"></i> Bulk Verify All IPO Applications
+                            <i class="fas fa-tasks"></i> Bulk Verify IPO Applications
                         </h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Verify the status of all IPO applications at once</p>
+                        <p class="text-muted mb-3">Select accounts to verify their IPO application status</p>
                         
-                        <button class="btn btn-warning btn-lg w-100" onclick="bulkVerifyAllIPOs()">
-                            <i class="fas fa-sync"></i> Verify All Applications
+                        <!-- Account Selection -->
+                        <div class="account-selection-box" style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ddd;">
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllVerifyAccounts()">
+                                    <i class="fas fa-check-square"></i> Select All
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="deselectAllVerifyAccounts()">
+                                    <i class="fas fa-square"></i> Deselect All
+                                </button>
+                            </div>
+                            <div id="verifyAccountsList" style="max-height: 200px; overflow-y: auto;">
+                                <!-- Accounts will be loaded here -->
+                            </div>
+                        </div>
+
+                        <button class="btn btn-warning btn-lg w-100" onclick="bulkVerifySelectedAccounts()">
+                            <i class="fas fa-sync"></i> Verify Selected Accounts
                         </button>
 
                         <div id="bulkVerifyResult" class="alert" style="display: none; margin-top: 15px;">

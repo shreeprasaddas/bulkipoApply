@@ -5,9 +5,10 @@ const STORAGE_KEY = 'ipo_applier_accounts';
 document.addEventListener('DOMContentLoaded', () => {
     loadAccountsFromStorage();
     loadAccountsForCheckboxes();
-    // Also populate verify dropdown on page load
+    // Also populate verify dropdown and account selection list on page load
     const accounts = getAccountsFromStorage();
     populateVerifyAccountDropdown(accounts);
+    populateVerifyAccountsList(accounts);
 });
 
 // ===== LOCAL STORAGE MANAGEMENT =====
@@ -136,8 +137,9 @@ async function loadAccountsForCheckboxes() {
         checkbox.addEventListener('change', updateSelectedCount);
     });
 
-    // Also populate the verify account dropdown
+    // Also populate the verify account dropdown and account selection list
     populateVerifyAccountDropdown(accounts);
+    populateVerifyAccountsList(accounts);
 }
 
 function resetAccountForm() {
@@ -212,6 +214,7 @@ async function saveAccount() {
         loadAccountsForCheckboxes();
         const updatedAccounts = getAccountsFromStorage();
         populateVerifyAccountDropdown(updatedAccounts);
+        populateVerifyAccountsList(updatedAccounts);
         
         // Close modal with better error handling
         setTimeout(() => {
@@ -278,6 +281,7 @@ async function deleteAccount(accountId) {
         loadAccountsFromStorage();
         loadAccountsForCheckboxes();
         populateVerifyAccountDropdown(accounts);
+        populateVerifyAccountsList(accounts);
     } catch (error) {
         console.error('Error deleting account:', error);
         showAlert('Error deleting account', 'danger');
@@ -886,7 +890,51 @@ async function quickVerifyIPO() {
 
 // ===== BULK VERIFICATION =====
 
-async function bulkVerifyAllIPOs() {
+function populateVerifyAccountsList(accounts) {
+    const verifyAccountsList = document.getElementById('verifyAccountsList');
+    if (!verifyAccountsList) return;
+    
+    if (!accounts || accounts.length === 0) {
+        verifyAccountsList.innerHTML = '<p class="text-muted">No accounts available</p>';
+        return;
+    }
+    
+    verifyAccountsList.innerHTML = accounts.map(account => `
+        <div class="form-check" style="padding: 10px; border-bottom: 1px solid #eee;">
+            <input class="form-check-input verify-account-checkbox" type="checkbox" value="${account.id}" id="verify_${account.id}">
+            <label class="form-check-label" for="verify_${account.id}">
+                <strong>${account.name}</strong> (DP: ${account.dp})
+            </label>
+        </div>
+    `).join('');
+}
+
+function selectAllVerifyAccounts() {
+    document.querySelectorAll('.verify-account-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+}
+
+function deselectAllVerifyAccounts() {
+    document.querySelectorAll('.verify-account-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+}
+
+async function bulkVerifySelectedAccounts() {
+    // Get selected account IDs
+    const selectedCheckboxes = document.querySelectorAll('.verify-account-checkbox:checked');
+    const selectedAccountIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (selectedAccountIds.length === 0) {
+        showAlert('Please select at least one account to verify', 'warning');
+        return;
+    }
+    
+    // Get all accounts to find details
+    const accounts = getAccountsFromStorage();
+    const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
+    
     const history = await fetch(`${API_URL}/history`).then(r => r.json()).catch(() => []);
     
     if (!history || history.length === 0) {
@@ -903,15 +951,24 @@ async function bulkVerifyAllIPOs() {
     const results = [];
     const uniqueRecords = {};
     
-    // Get unique account-IPO combinations
+    // Get unique account-IPO combinations for SELECTED accounts only
     history.forEach(record => {
-        const key = `${record.accountName}-${record.ipoName}`;
-        if (!uniqueRecords[key]) {
-            uniqueRecords[key] = record;
+        const isSelected = selectedAccounts.some(a => a.name === record.accountName);
+        if (isSelected) {
+            const key = `${record.accountName}-${record.ipoName}`;
+            if (!uniqueRecords[key]) {
+                uniqueRecords[key] = record;
+            }
         }
     });
     
     const recordsArray = Object.values(uniqueRecords);
+    
+    if (recordsArray.length === 0) {
+        showAlert('No applications found for selected accounts', 'info');
+        return;
+    }
+    
     let verifiedCount = 0;
     
     // Verify each one by one
