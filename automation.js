@@ -162,7 +162,7 @@ async function applyIPOForAccount(browser, account, quantity, ipoName, processed
             
             companyItems.forEach((item, index) => {
                 const companyNameElement = item.querySelector('span[tooltip="Company Name"]') || item.querySelector('.company-name span:not([tooltip])');
-                const companyName = companyNameElement?.textContent?.trim() || 'N/A';
+                const companyName = (companyNameElement?.textContent || 'N/A').trim().replace(/\s+/g, ' ');
                 
                 const companyNameDiv = item.querySelector('.company-name');
                 
@@ -745,7 +745,7 @@ export async function verifyIPOStatusLive(account, ipoName) {
             for (let company of companies) {
                 const nameElement = company.querySelector('.company-name');
                 if (nameElement) {
-                    const fullText = nameElement.innerText;
+                    const fullText = (nameElement.innerText || nameElement.textContent).trim().replace(/\s+/g, ' ');
                     
                     // Check if this company contains the IPO name
                     if (fullText.includes(targetIpoName)) {
@@ -928,7 +928,8 @@ export async function fetchActiveIPOs(account) {
                 const isOrdinary = isinElement && isinElement.innerText.includes('Ordinary Shares');
                 
                 if (nameElement && isIpo && isOrdinary) {
-                    ipoNames.push(nameElement.innerText.trim());
+                    const cleanName = (nameElement.innerText || nameElement.textContent).trim().replace(/\s+/g, ' ');
+                    ipoNames.push(cleanName);
                 }
             }
             return ipoNames;
