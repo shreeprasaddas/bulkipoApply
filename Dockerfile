@@ -3,7 +3,7 @@ FROM node:18-alpine
 # Install dependencies for Puppeteer
 RUN apk add --no-cache \
     chromium \
-    noto-sans \
+    font-noto-sans \
     freetype \
     harfbuzz \
     ca-certificates \
