@@ -88,8 +88,8 @@ docker-compose up
 | **Username** | user@example.com | Mero Share username |
 | **Password** | ••••••••• | Your Mero Share password |
 | **CRN Number** | 08314100719564000001 | Full 20-digit account number |
-| **PIN 1** | 2227 | Primary transaction PIN |
-| **PIN 2** | 6406 | Backup transaction PIN (optional) |
+| **PIN 1** | 1234 | Primary transaction PIN |
+| **PIN 2** | 6789 | Backup transaction PIN (optional) |
 
 ```javascript
 // CRN is extracted automatically from digits 6-14:
