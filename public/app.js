@@ -483,8 +483,6 @@ function deselectAllAccounts() {
 async function startBulkApplication() {
     const selectedAccounts = Array.from(document.querySelectorAll('.account-selector:checked')).map(cb => cb.value);
     const quantity = parseInt(document.getElementById('bulkQuantity').value);
-    const bulkApplyIpoNameInput = document.getElementById('bulkApplyIpoName');
-    const ipoName = bulkApplyIpoNameInput ? bulkApplyIpoNameInput.value.trim() : null;
 
     if (selectedAccounts.length === 0) {
         showAlert('Please select at least one account', 'warning');
@@ -513,8 +511,7 @@ async function startBulkApplication() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 account_ids: selectedAccounts,
-                quantity: quantity,
-                ipoName: ipoName
+                quantity: quantity
             })
         });
 
@@ -1432,14 +1429,6 @@ function reapplySelectedIpos(ipoName) {
         return;
     }
     
-    // Switch to Bulk Apply tab
-    const applyTabLink = document.getElementById('apply-tab');
-    if (applyTabLink) {
-        // Use Bootstrap tab API to switch
-        const tab = new bootstrap.Tab(applyTabLink);
-        tab.show();
-    }
-    
     // Pre-fill the bulk apply form and trigger
     document.querySelectorAll('.account-selector').forEach(cb => {
         cb.checked = accountIds.includes(cb.value);
@@ -1457,11 +1446,14 @@ function reapplySelectedIpos(ipoName) {
         }
         bulkApplyIpoNameInput.value = ipoName;
     }
+
+    // Switch to Bulk Apply tab
+    const applyTabLink = document.getElementById('apply-tab');
+    if (applyTabLink) {
+        applyTabLink.click();
+    }
     
-    // Auto start after a short delay to allow tab switch animation
-    setTimeout(() => {
-        startBulkApplication();
-    }, 500);
+    showAlert('Accounts and IPO selected! You can now start the bulk application.', 'info');
 }
 
 // Handle Enter key in forms
