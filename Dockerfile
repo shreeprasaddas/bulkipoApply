@@ -27,6 +27,7 @@ COPY public/ ./public/
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV CHROME_BIN=/usr/bin/chromium-browser
 
 # Expose port
 EXPOSE 3000

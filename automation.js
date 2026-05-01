@@ -51,7 +51,8 @@ export async function startBulkApplication(selectedAccounts, quantity = 10, onPr
             try {
                 // Create a NEW browser for each account (like index.js does)
                 const browser = await puppeteer.launch({ 
-                    headless: true
+                    headless: true,
+                    executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser'
                 });
                 
                 await applyIPOForAccount(browser, account, quantity, processedCount, selectedAccounts.length, onProgress);
@@ -660,7 +661,8 @@ export async function verifyIPOStatusLive(account, ipoName) {
         console.log(`\n📱 Real-time Verification: ${account.name} - ${ipoName}`);
         
         browser = await puppeteer.launch({ 
-            headless: true
+            headless: true,
+            executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser'
         });
         
         const page = await browser.newPage();

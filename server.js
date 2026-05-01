@@ -6,6 +6,11 @@ import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { startBulkApplication, getApplicationHistory, verifyIPOStatusLive } from './automation.js';
 
+// Set Chrome binary path for Puppeteer (used by automation.js)
+if (!process.env.CHROME_BIN) {
+    process.env.CHROME_BIN = '/usr/bin/chromium-browser'; // Linux/Railway
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
