@@ -3,11 +3,12 @@ FROM node:18-alpine
 # Install dependencies for Puppeteer
 RUN apk add --no-cache \
     chromium \
-    font-noto-sans \
-    freetype \
-    harfbuzz \
     ca-certificates \
-    ttf-dejavu
+    ttf-dejavu \
+    libx11 \
+    libxrandr \
+    libxinerama \
+    libxi
 
 # Set working directory
 WORKDIR /app
