@@ -8,7 +8,7 @@ import { startBulkApplication, getApplicationHistory, verifyIPOStatusLive } from
 
 // Set Chrome binary path for Puppeteer (used by automation.js)
 if (!process.env.CHROME_BIN) {
-    process.env.CHROME_BIN = '/usr/bin/chromium-browser'; // Linux/Railway
+    process.env.CHROME_BIN = '/usr/bin/chromium'; // Alpine Linux path
 }
 
 const __filename = fileURLToPath(import.meta.url);

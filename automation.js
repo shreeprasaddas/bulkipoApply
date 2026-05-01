@@ -52,7 +52,7 @@ export async function startBulkApplication(selectedAccounts, quantity = 10, onPr
                 // Create a NEW browser for each account (like index.js does)
                 const browser = await puppeteer.launch({ 
                     headless: true,
-                    executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser',
+                    executablePath: process.env.CHROME_BIN || '/usr/bin/chromium',
                     args: ['--no-sandbox', '--disable-setuid-sandbox']
                 });
                 
@@ -663,7 +663,7 @@ export async function verifyIPOStatusLive(account, ipoName) {
         
         browser = await puppeteer.launch({ 
             headless: true,
-            executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser',
+            executablePath: process.env.CHROME_BIN || '/usr/bin/chromium',
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         
