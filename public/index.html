@@ -164,17 +164,26 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Select accounts to verify their IPO application status</p>
+                        <p class="text-muted mb-3">Select accounts and enter IPO name to verify application status</p>
                         
+                        <!-- IPO Name Input -->
+                        <div class="mb-3">
+                            <label class="form-label"><strong>IPO Name to Verify</strong></label>
+                            <input type="text" class="form-control" id="bulkVerifyIpoName" placeholder="e.g., ABC Company IPO or leave empty to verify all from history">
+                        </div>
+
                         <!-- Account Selection -->
                         <div class="account-selection-box" style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ddd;">
                             <div class="mb-3">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllVerifyAccounts()">
-                                    <i class="fas fa-check-square"></i> Select All
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="deselectAllVerifyAccounts()">
-                                    <i class="fas fa-square"></i> Deselect All
-                                </button>
+                                <label class="form-label"><strong>Select Accounts to Verify</strong></label>
+                                <div class="mb-2">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="selectAllVerifyAccounts()">
+                                        <i class="fas fa-check-square"></i> Select All
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="deselectAllVerifyAccounts()">
+                                        <i class="fas fa-square"></i> Deselect All
+                                    </button>
+                                </div>
                             </div>
                             <div id="verifyAccountsList" style="max-height: 200px; overflow-y: auto;">
                                 <!-- Accounts will be loaded here -->
