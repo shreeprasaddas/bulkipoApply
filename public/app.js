@@ -556,8 +556,29 @@ function displayApplicationResults(results) {
 // ===== UTILITY FUNCTIONS =====
 
 function showAlert(message, type = 'info') {
-    // You can implement a toast notification here if desired
-    // For now, just logging
+    // Create a toast notification
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.role = 'alert';
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.minWidth = '300px';
+    
+    const icon = type === 'success' ? '✓' : type === 'danger' ? '✗' : type === 'warning' ? '⚠' : 'ℹ';
+    alertDiv.innerHTML = `
+        <strong>${icon}</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 4000);
+    
     console.log(`[${type.toUpperCase()}] ${message}`);
 }
 
@@ -787,6 +808,135 @@ async function quickVerifyIPO() {
         verifyResult.className = 'alert alert-danger';
         verifyResult.innerHTML = `<i class="fas fa-times-circle"></i> Error: ${error.message}`;
     }
+}
+
+// ===== BULK VERIFICATION =====
+
+async function bulkVerifyAllIPOs() {
+    const history = await fetch(`${API_URL}/history`).then(r => r.json()).catch(() => []);
+    
+    if (!history || history.length === 0) {
+        showAlert('No application history to verify', 'warning');
+        return;
+    }
+    
+    const bulkVerifyResult = document.getElementById('bulkVerifyResult');
+    if (!bulkVerifyResult) {
+        showAlert('Bulk verify section not found', 'danger');
+        return;
+    }
+    
+    bulkVerifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying all IPOs...';
+    bulkVerifyResult.style.display = 'block';
+    
+    const results = [];
+    const uniqueRecords = {};
+    
+    // Get unique account-IPO combinations
+    history.forEach(record => {
+        const key = `${record.accountName}-${record.ipoName}`;
+        if (!uniqueRecords[key]) {
+            uniqueRecords[key] = record;
+        }
+    });
+    
+    // Verify each
+    for (const key in uniqueRecords) {
+        const record = uniqueRecords[key];
+        try {
+            const response = await fetch(`${API_URL}/verify-ipo-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ipoName: record.ipoName,
+                    accountName: record.accountName
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                results.push({
+                    account: record.accountName,
+                    ipo: record.ipoName,
+                    applied: result.applied,
+                    status: result.buttonState
+                });
+            }
+        } catch (error) {
+            console.error('Error verifying:', error);
+        }
+    }
+    
+    // Display results
+    displayBulkVerifyResults(results);
+}
+
+function displayBulkVerifyResults(results) {
+    const bulkVerifyResult = document.getElementById('bulkVerifyResult');
+    const appliedCount = results.filter(r => r.applied).length;
+    const notAppliedCount = results.filter(r => !r.applied).length;
+    
+    let html = `
+        <div class="bulk-verify-results" style="margin-top: 15px;">
+            <h6 style="border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px;">
+                <i class="fas fa-tasks"></i> Bulk Verification Results
+            </h6>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 12px; border-radius: 6px; text-align: center;">
+                    <div style="font-size: 20px; font-weight: bold;">${results.length}</div>
+                    <small>Total IPOs</small>
+                </div>
+                <div style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); color: #155724; padding: 12px; border-radius: 6px; text-align: center;">
+                    <div style="font-size: 20px; font-weight: bold;">${appliedCount}</div>
+                    <small>Applied</small>
+                </div>
+                <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #721c24; padding: 12px; border-radius: 6px; text-align: center;">
+                    <div style="font-size: 20px; font-weight: bold;">${notAppliedCount}</div>
+                    <small>Not Applied</small>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Account</th>
+                            <th>IPO Name</th>
+                            <th>Status</th>
+                            <th>Button State</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    results.forEach(result => {
+        const statusBadge = result.applied
+            ? '<span class="badge bg-success">✓ Applied</span>'
+            : '<span class="badge bg-danger">✗ Not Applied</span>';
+        
+        const buttonBadge = result.status === 'Edit'
+            ? '<span style="background: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Edit</strong></span>'
+            : '<span style="background: #f44336; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Apply</strong></span>';
+        
+        html += `
+            <tr>
+                <td><strong>${result.account}</strong></td>
+                <td>${result.ipo}</td>
+                <td>${statusBadge}</td>
+                <td>${buttonBadge}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    bulkVerifyResult.innerHTML = html;
 }
 
 // Handle Enter key in forms

@@ -121,15 +121,15 @@
                     <i class="fas fa-spinner fa-spin"></i> <span id="resultMessage">Starting...</span>
                 </div>
 
-                <!-- Verify IPO Status Section -->
+                <!-- Quick Verify IPO Status Section -->
                 <div class="card mt-5" style="background: #f8f9fa; border: 2px dashed #007bff;">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
-                            <i class="fas fa-search-check"></i> Verify IPO Application Status
+                            <i class="fas fa-search-check"></i> Quick Verify IPO Status
                         </h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Check if an IPO application was successful for a specific account</p>
+                        <p class="text-muted mb-3">Check if a specific IPO application was successful</p>
                         
                         <div class="row">
                             <div class="col-md-4 mb-3">
@@ -152,6 +152,26 @@
 
                         <div id="verifyResult" class="alert" style="display: none; margin-top: 15px;">
                             <!-- Result will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk Verify Section -->
+                <div class="card mt-4" style="background: #fff3cd; border: 2px solid #ffc107;">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tasks"></i> Bulk Verify All IPO Applications
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Verify the status of all IPO applications at once</p>
+                        
+                        <button class="btn btn-warning btn-lg w-100" onclick="bulkVerifyAllIPOs()">
+                            <i class="fas fa-sync"></i> Verify All Applications
+                        </button>
+
+                        <div id="bulkVerifyResult" class="alert" style="display: none; margin-top: 15px;">
+                            <!-- Bulk results will be displayed here -->
                         </div>
                     </div>
                 </div>
