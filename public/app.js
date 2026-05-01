@@ -816,7 +816,7 @@ async function quickVerifyIPO() {
     }
     
     verifyResult.className = 'alert alert-info';
-    verifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    verifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <strong>Visiting Mero Share ASBA page...</strong><br><small>This will open a browser to check the actual IPO status on the website. Please wait...</small>';
     verifyResult.style.display = 'block';
     
     try {
@@ -832,17 +832,31 @@ async function quickVerifyIPO() {
         if (response.ok) {
             const result = await response.json();
             
-            if (result.applied) {
+            if (result.success && result.applied) {
                 verifyResult.className = 'alert alert-success';
                 verifyResult.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-check-circle" style="font-size: 24px;"></i>
                         <div>
-                            <strong>✓ Successfully Applied!</strong>
+                            <strong>✓ IPO Successfully Applied!</strong>
                             <br><small>IPO: <strong>${result.ipoName}</strong></small>
-                            <br><small>Account: <strong>${result.accountName}</strong></small>
-                            <br><small style="color: #666;">Applied on: ${new Date(result.appliedAt).toLocaleString()}</small>
-                            <br><small style="color: #666;">Button State: <span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px;"><strong>Edit</strong></span></small>
+                            <br><small>Account: <strong>${accountName}</strong></small>
+                            <br><small style="color: #666;">Verified on: ${new Date(result.verified_at).toLocaleString()}</small>
+                            <br><small style="color: #666;">Button State on Mero Share: <span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px;"><strong>${result.buttonState}</strong></span></small>
+                        </div>
+                    </div>
+                `;
+            } else if (result.success && !result.applied) {
+                verifyResult.className = 'alert alert-danger';
+                verifyResult.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-times-circle" style="font-size: 24px;"></i>
+                        <div>
+                            <strong>✗ IPO Not Applied Yet</strong>
+                            <br><small>IPO: <strong>${result.ipoName}</strong></small>
+                            <br><small>Account: <strong>${accountName}</strong></small>
+                            <br><small style="color: #666;">Verified on: ${new Date(result.verified_at).toLocaleString()}</small>
+                            <br><small style="color: #666;">Button State on Mero Share: <span style="background: #f44336; color: white; padding: 2px 6px; border-radius: 3px;"><strong>${result.buttonState}</strong></span></small>
                         </div>
                     </div>
                 `;
@@ -850,13 +864,11 @@ async function quickVerifyIPO() {
                 verifyResult.className = 'alert alert-danger';
                 verifyResult.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-times-circle" style="font-size: 24px;"></i>
+                        <i class="fas fa-exclamation-circle" style="font-size: 24px;"></i>
                         <div>
-                            <strong>✗ Not Applied Yet</strong>
-                            <br><small>IPO: <strong>${result.ipoName}</strong></small>
-                            <br><small>Account: <strong>${result.accountName}</strong></small>
-                            <br><small style="color: #666;">No application record found for this IPO</small>
-                            <br><small style="color: #666;">Button State: <span style="background: #f44336; color: white; padding: 2px 6px; border-radius: 3px;"><strong>Apply</strong></span></small>
+                            <strong>Verification Failed</strong>
+                            <br><small>${result.error || 'Could not verify IPO status'}</small>
+                            <br><small style="color: #666;">Verified on: ${new Date(result.verified_at).toLocaleString()}</small>
                         </div>
                     </div>
                 `;
@@ -888,7 +900,7 @@ async function bulkVerifyAllIPOs() {
         return;
     }
     
-    bulkVerifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying all IPOs...';
+    bulkVerifyResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <strong>Visiting Mero Share website...</strong><br><small>Checking real-time status for all IPOs. This may take a few moments.</small>';
     bulkVerifyResult.style.display = 'block';
     
     const results = [];
@@ -902,7 +914,7 @@ async function bulkVerifyAllIPOs() {
         }
     });
     
-    // Verify each
+    // Verify each in real-time
     for (const key in uniqueRecords) {
         const record = uniqueRecords[key];
         try {
@@ -920,12 +932,20 @@ async function bulkVerifyAllIPOs() {
                 results.push({
                     account: record.accountName,
                     ipo: record.ipoName,
-                    applied: result.applied,
-                    status: result.buttonState
+                    applied: result.success ? result.applied : null,
+                    status: result.buttonState || (result.applied ? 'Edit' : 'Apply'),
+                    verified: result.success
                 });
             }
         } catch (error) {
             console.error('Error verifying:', error);
+            results.push({
+                account: record.accountName,
+                ipo: record.ipoName,
+                applied: null,
+                status: 'Error',
+                verified: false
+            });
         }
     }
     
@@ -935,27 +955,32 @@ async function bulkVerifyAllIPOs() {
 
 function displayBulkVerifyResults(results) {
     const bulkVerifyResult = document.getElementById('bulkVerifyResult');
-    const appliedCount = results.filter(r => r.applied).length;
-    const notAppliedCount = results.filter(r => !r.applied).length;
+    const appliedCount = results.filter(r => r.verified && r.applied).length;
+    const notAppliedCount = results.filter(r => r.verified && !r.applied).length;
+    const failedCount = results.filter(r => !r.verified).length;
     
     let html = `
         <div class="bulk-verify-results" style="margin-top: 15px;">
             <h6 style="border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px;">
-                <i class="fas fa-tasks"></i> Bulk Verification Results
+                <i class="fas fa-tasks"></i> Real-Time Verification Results (from Mero Share)
             </h6>
             
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
                 <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 12px; border-radius: 6px; text-align: center;">
                     <div style="font-size: 20px; font-weight: bold;">${results.length}</div>
-                    <small>Total IPOs</small>
+                    <small>Total Checked</small>
                 </div>
                 <div style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); color: #155724; padding: 12px; border-radius: 6px; text-align: center;">
                     <div style="font-size: 20px; font-weight: bold;">${appliedCount}</div>
-                    <small>Applied</small>
+                    <small>Applied (Edit)</small>
                 </div>
                 <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #721c24; padding: 12px; border-radius: 6px; text-align: center;">
                     <div style="font-size: 20px; font-weight: bold;">${notAppliedCount}</div>
-                    <small>Not Applied</small>
+                    <small>Not Applied (Apply)</small>
+                </div>
+                <div style="background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); color: white; padding: 12px; border-radius: 6px; text-align: center;">
+                    <div style="font-size: 20px; font-weight: bold;">${failedCount}</div>
+                    <small>Verification Failed</small>
                 </div>
             </div>
             
@@ -965,21 +990,27 @@ function displayBulkVerifyResults(results) {
                         <tr>
                             <th>Account</th>
                             <th>IPO Name</th>
-                            <th>Status</th>
-                            <th>Button State</th>
+                            <th>Verification Status</th>
+                            <th>Website Button</th>
                         </tr>
                     </thead>
                     <tbody>
     `;
     
     results.forEach(result => {
-        const statusBadge = result.applied
-            ? '<span class="badge bg-success">✓ Applied</span>'
-            : '<span class="badge bg-danger">✗ Not Applied</span>';
+        let statusBadge = '';
+        let buttonBadge = '';
         
-        const buttonBadge = result.status === 'Edit'
-            ? '<span style="background: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Edit</strong></span>'
-            : '<span style="background: #f44336; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Apply</strong></span>';
+        if (!result.verified) {
+            statusBadge = '<span class="badge bg-danger">Verification Failed</span>';
+            buttonBadge = '<span style="background: #999; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">Unknown</span>';
+        } else if (result.applied) {
+            statusBadge = '<span class="badge bg-success">✓ Applied</span>';
+            buttonBadge = '<span style="background: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Edit</strong></span>';
+        } else {
+            statusBadge = '<span class="badge bg-danger">✗ Not Applied</span>';
+            buttonBadge = '<span style="background: #f44336; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Apply</strong></span>';
+        }
         
         html += `
             <tr>

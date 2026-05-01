@@ -649,3 +649,152 @@ async function applyIPOForAccount(browser, account, quantity, processedCount, to
 export function getApplicationStatus() {
     return currentProcess;
 }
+
+/**
+ * Verify IPO status by visiting the ASBA page in real-time
+ * Checks if the button shows "Edit" (already applied) or "Apply" (not applied)
+ */
+export async function verifyIPOStatusLive(account, ipoName) {
+    let browser;
+    const page = null;
+    
+    try {
+        console.log(`\n📱 Real-time Verification: ${account.name} - ${ipoName}`);
+        
+        browser = await puppeteer.launch({ 
+            headless: false,
+            defaultViewport: null, 
+            args: ['--start-maximized']
+        });
+        
+        const page = await browser.newPage();
+        
+        // ===== LOGIN =====
+        console.log(`Logging in as ${account.name}...`);
+        await page.goto('https://meroshare.cdsc.com.np/', { waitUntil: 'networkidle2', timeout: 10000 });
+        
+        // Wait for DP dropdown
+        await page.waitForSelector('select.select2-hidden-accessible', { timeout: 5000 });
+        
+        // Select DP
+        const dpSelect = 'select.select2-hidden-accessible';
+        await page.select(dpSelect, account.dp);
+        await page.waitForTimeout(500);
+        
+        // Select Account
+        const accountSelect = 'select.select2-hidden-accessible:nth-of-type(2)';
+        const accountNumber = `${account.dp} - ${account.name}`;
+        await page.select(accountSelect, account.crn_number);
+        await page.waitForTimeout(500);
+        
+        // Enter Username
+        await page.type('input[placeholder*="username"]', account.username, { delay: 50 });
+        
+        // Enter Password
+        await page.type('input[placeholder*="password"]', account.password, { delay: 50 });
+        
+        // Click login
+        await page.click('button[type="submit"]');
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
+        
+        console.log(`✓ Logged in successfully`);
+        
+        // ===== NAVIGATE TO ASBA =====
+        console.log(`Navigating to ASBA page...`);
+        await page.goto('https://meroshare.cdsc.com.np/#/asba', { waitUntil: 'networkidle2', timeout: 10000 });
+        
+        // Wait for company list to load
+        await page.waitForSelector('.company-list', { timeout: 5000 });
+        
+        // Find the company with matching name
+        console.log(`Searching for IPO: ${ipoName}`);
+        
+        const companyInfo = await page.evaluate((targetIpoName) => {
+            const companies = document.querySelectorAll('.company-list');
+            
+            for (let company of companies) {
+                const nameElement = company.querySelector('.company-name');
+                if (nameElement) {
+                    const fullText = nameElement.innerText;
+                    
+                    // Check if this company contains the IPO name
+                    if (fullText.includes(targetIpoName)) {
+                        // Find the button in this company
+                        const actionButtons = company.querySelector('.action-buttons');
+                        if (actionButtons) {
+                            const buttons = actionButtons.querySelectorAll('button');
+                            let buttonText = '';
+                            
+                            for (let btn of buttons) {
+                                const text = btn.innerText.trim().toLowerCase();
+                                if (text === 'edit' || text === 'apply') {
+                                    buttonText = text;
+                                    break;
+                                }
+                            }
+                            
+                            return {
+                                found: true,
+                                ipoName: fullText.trim(),
+                                buttonState: buttonText,
+                                applied: buttonText === 'edit'
+                            };
+                        }
+                    }
+                }
+            }
+            
+            return {
+                found: false,
+                ipoName: null,
+                buttonState: null,
+                applied: null
+            };
+        }, ipoName);
+        
+        await browser.close();
+        
+        if (companyInfo.found) {
+            console.log(`✓ Found IPO: ${companyInfo.ipoName}`);
+            console.log(`  Button State: ${companyInfo.buttonState.toUpperCase()}`);
+            console.log(`  Applied: ${companyInfo.applied ? 'YES ✓' : 'NO ✗'}`);
+            
+            return {
+                success: true,
+                applied: companyInfo.applied,
+                buttonState: companyInfo.buttonState.charAt(0).toUpperCase() + companyInfo.buttonState.slice(1),
+                ipoName: companyInfo.ipoName,
+                verified_at: new Date().toISOString()
+            };
+        } else {
+            console.log(`✗ IPO not found: ${ipoName}`);
+            return {
+                success: false,
+                applied: null,
+                buttonState: null,
+                ipoName: ipoName,
+                error: 'IPO not found on ASBA page',
+                verified_at: new Date().toISOString()
+            };
+        }
+        
+    } catch (error) {
+        console.error(`❌ Verification error: ${error.message}`);
+        
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (e) {
+                console.error('Error closing browser:', e.message);
+            }
+        }
+        
+        return {
+            success: false,
+            applied: null,
+            buttonState: null,
+            error: error.message,
+            verified_at: new Date().toISOString()
+        };
+    }
+}

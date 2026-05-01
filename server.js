@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { startBulkApplication, getApplicationHistory } from './automation.js';
+import { startBulkApplication, getApplicationHistory, verifyIPOStatusLive } from './automation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -275,8 +275,8 @@ app.get('/api/history', (req, res) => {
     }
 });
 
-// Verify IPO status (check if IPO shows Apply or Edit button on Mero Share)
-app.post('/api/verify-ipo-status', (req, res) => {
+// Verify IPO status by visiting the ASBA page (real-time verification)
+app.post('/api/verify-ipo-status', async (req, res) => {
     try {
         const { ipoName, accountName } = req.body;
         
@@ -284,36 +284,31 @@ app.post('/api/verify-ipo-status', (req, res) => {
             return res.status(400).send('Missing ipoName or accountName');
         }
         
-        const history = getApplicationHistory();
-        
-        // Search in history for this IPO application
-        const record = history.find(h => 
-            h.ipoName === ipoName && 
-            h.accountName === accountName && 
-            h.status === 'success'
-        );
-        
-        if (record) {
-            res.json({
-                applied: true,
-                ipoName: ipoName,
-                accountName: accountName,
-                appliedAt: record.appliedAt,
-                status: 'success',
-                buttonState: 'Edit' // If applied, button shows "Edit" not "Apply"
-            });
-        } else {
-            res.json({
-                applied: false,
-                ipoName: ipoName,
-                accountName: accountName,
-                status: 'not_applied',
-                buttonState: 'Apply' // If not applied, button shows "Apply"
+        // Find the account from synced accounts
+        const account = Object.values(accountsStore).find(a => a.name === accountName);
+        if (!account) {
+            return res.status(404).json({
+                success: false,
+                error: 'Account not found',
+                applied: null,
+                buttonState: null
             });
         }
+        
+        // Verify by actually visiting the website
+        console.log(`\n[API] Verifying IPO: ${ipoName} for Account: ${accountName}`);
+        const result = await verifyIPOStatusLive(account, ipoName);
+        
+        res.json(result);
+        
     } catch (error) {
         console.error('Error verifying IPO status:', error);
-        res.status(500).send(error.message);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            applied: null,
+            buttonState: null
+        });
     }
 });
 
