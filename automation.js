@@ -662,9 +662,7 @@ export async function verifyIPOStatusLive(account, ipoName) {
         console.log(`\n📱 Real-time Verification: ${account.name} - ${ipoName}`);
         
         browser = await puppeteer.launch({ 
-            headless: false,
-            defaultViewport: null, 
-            args: ['--start-maximized']
+            headless: false
         });
         
         const page = await browser.newPage();
@@ -752,20 +750,33 @@ export async function verifyIPOStatusLive(account, ipoName) {
                         if (actionButtons) {
                             const buttons = actionButtons.querySelectorAll('button');
                             let buttonText = '';
+                            let applied = null;
                             
+                            // Check all buttons for 'edit' or 'apply'
                             for (let btn of buttons) {
                                 const text = btn.innerText.trim().toLowerCase();
-                                if (text === 'edit' || text === 'apply') {
-                                    buttonText = text;
+                                if (text === 'edit') {
+                                    buttonText = 'edit';
+                                    applied = true;
+                                    break;
+                                } else if (text === 'apply') {
+                                    buttonText = 'apply';
+                                    applied = false;
                                     break;
                                 }
+                            }
+                            
+                            // If no buttons found (empty action-buttons), it means IPO is already applied
+                            if (buttons.length === 0) {
+                                buttonText = 'no-button-empty';
+                                applied = true;  // No button = IPO already applied/completed
                             }
                             
                             return {
                                 found: true,
                                 ipoName: fullText.trim(),
                                 buttonState: buttonText,
-                                applied: buttonText === 'edit'
+                                applied: applied
                             };
                         }
                     }
@@ -784,13 +795,22 @@ export async function verifyIPOStatusLive(account, ipoName) {
         
         if (companyInfo.found) {
             console.log(`✓ Found IPO: ${companyInfo.ipoName}`);
-            console.log(`  Button State: ${companyInfo.buttonState.toUpperCase()}`);
+            
+            // Format button state for display
+            let displayButtonState = companyInfo.buttonState;
+            if (companyInfo.buttonState === 'no-button-empty') {
+                displayButtonState = 'No Button (Already Applied)';
+            } else if (companyInfo.buttonState) {
+                displayButtonState = companyInfo.buttonState.charAt(0).toUpperCase() + companyInfo.buttonState.slice(1);
+            }
+            
+            console.log(`  Button State: ${displayButtonState}`);
             console.log(`  Applied: ${companyInfo.applied ? 'YES ✓' : 'NO ✗'}`);
             
             return {
                 success: true,
                 applied: companyInfo.applied,
-                buttonState: companyInfo.buttonState.charAt(0).toUpperCase() + companyInfo.buttonState.slice(1),
+                buttonState: displayButtonState,
                 ipoName: companyInfo.ipoName,
                 verified_at: new Date().toISOString()
             };
