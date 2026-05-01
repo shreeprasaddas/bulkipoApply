@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:3000/api';
+// Use relative path so it works on localhost, Railway, or any domain
+const API_URL = '/api';
 const STORAGE_KEY = 'ipo_applier_accounts';
 
 // Load accounts from localStorage on page load
