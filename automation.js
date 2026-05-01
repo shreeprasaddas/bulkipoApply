@@ -27,7 +27,7 @@ export function storeApplicationHistory(record) {
     console.log(`📝 Stored in history: ${record.accountName} - ${record.ipoName} - ${record.status}`);
 }
 
-export async function startBulkApplication(selectedAccounts, quantity = 10, onProgress = null) {
+export async function startBulkApplication(selectedAccounts, quantity = 10, ipoName = null, onProgress = null) {
     try {
         console.log(`\n========== STARTING BULK IPO APPLICATION ==========`);
         console.log(`Total accounts to process: ${selectedAccounts.length}`);
@@ -54,7 +54,7 @@ export async function startBulkApplication(selectedAccounts, quantity = 10, onPr
                     headless: true
                 });
                 
-                await applyIPOForAccount(browser, account, quantity, processedCount, selectedAccounts.length, onProgress);
+                await applyIPOForAccount(browser, account, quantity, ipoName, processedCount, selectedAccounts.length, onProgress);
                 
                 await browser.close();
             } catch (error) {
@@ -84,7 +84,7 @@ export async function startBulkApplication(selectedAccounts, quantity = 10, onPr
     }
 }
 
-async function applyIPOForAccount(browser, account, quantity, processedCount, totalAccounts, onProgress) {
+async function applyIPOForAccount(browser, account, quantity, ipoName, processedCount, totalAccounts, onProgress) {
     const page = await browser.newPage();
     let accountResults = [];
     
@@ -161,7 +161,7 @@ async function applyIPOForAccount(browser, account, quantity, processedCount, to
             const companyItems = document.querySelectorAll('.company-list');
             
             companyItems.forEach((item, index) => {
-                const companyNameElement = item.querySelector('.company-name span');
+                const companyNameElement = item.querySelector('span[tooltip="Company Name"]') || item.querySelector('.company-name span:not([tooltip])');
                 const companyName = companyNameElement?.textContent?.trim() || 'N/A';
                 
                 const companyNameDiv = item.querySelector('.company-name');
@@ -196,11 +196,17 @@ async function applyIPOForAccount(browser, account, quantity, processedCount, to
         });
         
         // Filter IPOs: Only show those with Share Type: IPO, ISIN: Ordinary Shares, and Can Apply: Yes
-        const filteredIPOs = ipoList.filter(ipo => 
-            ipo.shareType.includes('IPO') && 
-            ipo.isin.includes('Ordinary Shares') && 
-            ipo.hasApplyButton
-        );
+        const filteredIPOs = ipoList.filter(ipo => {
+            const isApplicable = ipo.shareType.includes('IPO') && 
+                               ipo.isin.includes('Ordinary Shares') && 
+                               ipo.hasApplyButton;
+            if (!isApplicable) return false;
+            
+            // If ipoName is provided, only include the specific IPO
+            if (ipoName && ipoName !== '' && ipo.companyName !== ipoName) return false;
+            
+            return true;
+        });
         
         console.log(`\nFiltered IPOs (IPO + Ordinary Shares + Applicable): ${filteredIPOs.length}`);
         filteredIPOs.forEach((ipo, index) => {
@@ -841,6 +847,112 @@ export async function verifyIPOStatusLive(account, ipoName) {
             buttonState: null,
             error: error.message,
             verified_at: new Date().toISOString()
+        };
+    }
+}
+
+
+/**
+ * Fetch list of active IPOs from Meroshare ASBA page
+ */
+export async function fetchActiveIPOs(account) {
+    let browser;
+    try {
+        console.log(`\n🔍 Fetching Active IPOs using account: ${account.name}`);
+        
+        const puppeteer = (await import('puppeteer')).default;
+        browser = await puppeteer.launch({ 
+            headless: true
+        });
+        
+        const page = await browser.newPage();
+        
+        // ===== LOGIN =====
+        console.log(`Logging in as ${account.name}...`);
+        await page.goto('https://meroshare.cdsc.com.np/', { waitUntil: 'networkidle2', timeout: 10000 });
+        
+        // Wait for the page to load
+        await page.waitForSelector('select.select2-hidden-accessible', { timeout: 5000 });
+        
+        // Select DP from dropdown (Select2)
+        await page.click('.select2-selection--single');
+        await page.waitForSelector('.select2-results__option', { timeout: 5000 });
+        
+        // Click the option with the DP value
+        const optionToClick = await page.evaluate((dpValue) => {
+            const options = Array.from(document.querySelectorAll('.select2-results__option'));
+            const option = options.find(opt => opt.textContent.includes(dpValue));
+            return option ? option.getAttribute('data-select2-id') : null;
+        }, `(${account.dp})`);
+        
+        if (optionToClick) {
+            await page.click(`[data-select2-id="${optionToClick}"]`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await page.type('#username', account.username, { delay: 50 });
+        await page.type('input[name="password"]', account.password, { delay: 50 });
+        await page.waitForSelector('button.sign-in', { timeout: 5000 });
+        
+        try {
+            await page.click('button.sign-in');
+        } catch (error) {
+            await page.focus('button.sign-in');
+            await page.keyboard.press('Enter');
+        }
+        
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => console.log('Navigation timeout'));
+        
+        // ===== NAVIGATE TO ASBA =====
+        console.log(`Navigating to ASBA page...`);
+        await page.goto('https://meroshare.cdsc.com.np/#/asba', { waitUntil: 'networkidle2', timeout: 10000 });
+        
+        await page.waitForSelector('.company-list', { timeout: 10000 }).catch(() => {
+            console.log('No companies found or timeout.');
+        });
+        
+        // Extract all active IPOs
+        const activeIPOs = await page.evaluate(() => {
+            const companies = document.querySelectorAll('.company-list');
+            const ipoNames = [];
+            
+            for (let company of companies) {
+                // Find company name using the correct tooltip attribute or fallback
+                const nameElement = company.querySelector('span[tooltip="Company Name"]') || company.querySelector('.company-name');
+                
+                // Find share type and group
+                const shareTypeElement = company.querySelector('span[tooltip="Share Type"]');
+                const isinElement = company.querySelector('span[tooltip="Share Group"]');
+                
+                const isIpo = shareTypeElement && shareTypeElement.innerText.includes('IPO');
+                const isOrdinary = isinElement && isinElement.innerText.includes('Ordinary Shares');
+                
+                if (nameElement && isIpo && isOrdinary) {
+                    ipoNames.push(nameElement.innerText.trim());
+                }
+            }
+            return ipoNames;
+        });
+        
+        await browser.close();
+        console.log(`✓ Found ${activeIPOs.length} active IPOs.`);
+        
+        return {
+            success: true,
+            ipos: activeIPOs
+        };
+        
+    } catch (error) {
+        console.error(`❌ Error fetching active IPOs: ${error.message}`);
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (e) {}
+        }
+        return {
+            success: false,
+            error: error.message,
+            ipos: []
         };
     }
 }

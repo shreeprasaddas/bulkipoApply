@@ -88,6 +88,18 @@
 
                 <div class="row mb-4">
                     <div class="col-md-6">
+                        <label class="form-label"><strong>IPO Name</strong></label>
+                        <div class="input-group">
+                            <select class="form-select" id="bulkApplyIpoName">
+                                <option value="">-- Apply for all available --</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button" onclick="loadActiveIPOs()" title="Fetch active IPOs from Meroshare">
+                                <i class="fas fa-sync-alt"></i> Load Active IPOs
+                            </button>
+                        </div>
+                        <small class="text-muted">Select an IPO, or leave to apply for all active</small>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label"><strong>IPO Quantity per Account</strong></label>
                         <input type="number" id="bulkQuantity" class="form-control" value="10" min="1" max="1000">
                         <small class="text-muted">Number of shares to apply for each account</small>
@@ -147,7 +159,14 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label"><strong>IPO Name</strong></label>
-                                <input type="text" class="form-control" id="verifyIpoName" placeholder="e.g., ABC Company IPO">
+                                <div class="input-group">
+                                    <select class="form-select" id="verifyIpoName">
+                                        <option value="">-- Load active IPOs --</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="loadActiveIPOs()" title="Fetch active IPOs from Meroshare">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">&nbsp;</label>
@@ -176,7 +195,14 @@
                         <!-- IPO Name Input -->
                         <div class="mb-3">
                             <label class="form-label"><strong>IPO Name to Verify</strong></label>
-                            <input type="text" class="form-control" id="bulkVerifyIpoName" placeholder="e.g., ABC Company IPO or leave empty to verify all from history">
+                            <div class="input-group">
+                                <select class="form-select" id="bulkVerifyIpoName">
+                                    <option value="">-- Verify all from history --</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" onclick="loadActiveIPOs()" title="Fetch active IPOs from Meroshare">
+                                    <i class="fas fa-sync-alt"></i> Load Active IPOs
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Account Selection -->

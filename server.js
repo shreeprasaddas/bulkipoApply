@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { startBulkApplication, getApplicationHistory, verifyIPOStatusLive } from './automation.js';
+import { startBulkApplication, getApplicationHistory, verifyIPOStatusLive, fetchActiveIPOs } from './automation.js';
 
 // Set Chrome binary path for Puppeteer (used by automation.js)
 if (!process.env.CHROME_BIN) {
@@ -150,7 +150,7 @@ app.delete('/api/accounts/:id', (req, res) => {
 // Start bulk IPO application
 app.post('/api/apply-ipo', (req, res) => {
     try {
-        const { account_ids, quantity } = req.body;
+        const { account_ids, quantity, ipoName } = req.body;
         
         if (!account_ids || account_ids.length === 0) {
             return res.status(400).send('No accounts selected');
@@ -177,7 +177,7 @@ app.post('/api/apply-ipo', (req, res) => {
         });
         
         // Start the automation in background
-        startBulkApplication(selectedAccounts, quantity || 10, (update) => {
+        startBulkApplication(selectedAccounts, quantity || 10, ipoName, (update) => {
             const status = processStatus.get(processId);
             if (status) {
                 // Update processed count - handle both direct count and increment
@@ -314,6 +314,26 @@ app.post('/api/verify-ipo-status', async (req, res) => {
             applied: null,
             buttonState: null
         });
+    }
+});
+
+// Get active IPOs
+app.get('/api/active-ipos', async (req, res) => {
+    try {
+        const accounts = Object.values(accountsStore);
+        if (accounts.length === 0) {
+            return res.status(400).json({ success: false, error: 'No accounts available to fetch IPOs. Please add an account first.' });
+        }
+        
+        // Use the first available account to fetch the list
+        const account = accounts[0];
+        console.log(`\n[API] Fetching active IPOs using account: ${account.name}`);
+        
+        const result = await fetchActiveIPOs(account);
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching active IPOs:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

@@ -483,6 +483,8 @@ function deselectAllAccounts() {
 async function startBulkApplication() {
     const selectedAccounts = Array.from(document.querySelectorAll('.account-selector:checked')).map(cb => cb.value);
     const quantity = parseInt(document.getElementById('bulkQuantity').value);
+    const bulkApplyIpoNameInput = document.getElementById('bulkApplyIpoName');
+    const ipoName = bulkApplyIpoNameInput ? bulkApplyIpoNameInput.value.trim() : null;
 
     if (selectedAccounts.length === 0) {
         showAlert('Please select at least one account', 'warning');
@@ -511,7 +513,8 @@ async function startBulkApplication() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 account_ids: selectedAccounts,
-                quantity: quantity
+                quantity: quantity,
+                ipoName: ipoName
             })
         });
 
@@ -1293,9 +1296,9 @@ async function bulkVerifySelectedAccounts() {
 
 function displayBulkVerifyResults(results) {
     const bulkVerifyResult = document.getElementById('bulkVerifyResult');
-    const appliedCount = results.filter(r => r.verified && r.applied).length;
-    const notAppliedCount = results.filter(r => r.verified && !r.applied).length;
-    const failedCount = results.filter(r => !r.verified).length;
+    const appliedResults = results.filter(r => r.verified && r.applied);
+    const notAppliedResults = results.filter(r => r.verified && !r.applied);
+    const failedResults = results.filter(r => !r.verified);
     
     let html = `
         <div class="bulk-verify-results" style="margin-top: 15px;">
@@ -1309,65 +1312,156 @@ function displayBulkVerifyResults(results) {
                     <small>Total Checked</small>
                 </div>
                 <div style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); color: #155724; padding: 12px; border-radius: 6px; text-align: center;">
-                    <div style="font-size: 20px; font-weight: bold;">${appliedCount}</div>
+                    <div style="font-size: 20px; font-weight: bold;">${appliedResults.length}</div>
                     <small>Applied (Edit)</small>
                 </div>
                 <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #721c24; padding: 12px; border-radius: 6px; text-align: center;">
-                    <div style="font-size: 20px; font-weight: bold;">${notAppliedCount}</div>
+                    <div style="font-size: 20px; font-weight: bold;">${notAppliedResults.length}</div>
                     <small>Not Applied (Apply)</small>
                 </div>
                 <div style="background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); color: white; padding: 12px; border-radius: 6px; text-align: center;">
-                    <div style="font-size: 20px; font-weight: bold;">${failedCount}</div>
+                    <div style="font-size: 20px; font-weight: bold;">${failedResults.length}</div>
                     <small>Verification Failed</small>
                 </div>
             </div>
             
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Account</th>
-                            <th>IPO Name</th>
-                            <th>Verification Status</th>
-                            <th>Website Button</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <ul class="nav nav-pills mb-3" id="verifyResultTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pills-not-applied-tab" data-bs-toggle="pill" data-bs-target="#pills-not-applied" type="button" role="tab">Not Applied (${notAppliedResults.length})</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-applied-tab" data-bs-toggle="pill" data-bs-target="#pills-applied" type="button" role="tab">Applied (${appliedResults.length})</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-failed-tab" data-bs-toggle="pill" data-bs-target="#pills-failed" type="button" role="tab">Failed (${failedResults.length})</button>
+              </li>
+            </ul>
+            
+            <div class="tab-content" id="pills-tabContent">
+                <!-- Not Applied Tab -->
+                <div class="tab-pane fade show active" id="pills-not-applied" role="tabpanel">
     `;
     
-    results.forEach(result => {
-        let statusBadge = '';
-        let buttonBadge = '';
+    if (notAppliedResults.length > 0) {
+        // Group by IPO for the Re-apply button logic
+        const unappliedByIpo = {};
+        notAppliedResults.forEach(r => {
+            if (!unappliedByIpo[r.ipo]) unappliedByIpo[r.ipo] = [];
+            unappliedByIpo[r.ipo].push(r);
+        });
+
+        html += `<div class="table-responsive"><table class="table table-sm table-hover"><thead class="table-warning"><tr>
+            <th><input type="checkbox" id="selectAllReapply" checked onclick="document.querySelectorAll('.reapply-checkbox').forEach(cb => cb.checked = this.checked)"></th>
+            <th>Account</th><th>IPO Name</th><th>Website Button</th></tr></thead><tbody>`;
         
-        if (!result.verified) {
-            statusBadge = '<span class="badge bg-danger">Verification Failed</span>';
-            buttonBadge = '<span style="background: #999; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">Unknown</span>';
-        } else if (result.applied) {
-            statusBadge = '<span class="badge bg-success">✓ Applied</span>';
-            buttonBadge = '<span style="background: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Edit</strong></span>';
-        } else {
-            statusBadge = '<span class="badge bg-danger">✗ Not Applied</span>';
-            buttonBadge = '<span style="background: #f44336; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Apply</strong></span>';
-        }
+        notAppliedResults.forEach((result, idx) => {
+            // Find account ID from global accounts array
+            const allAccounts = getAccountsFromStorage() || [];
+            const accObj = allAccounts.find(a => a.name === result.account);
+            const accId = accObj ? accObj.id : '';
+
+            html += `
+                <tr>
+                    <td><input type="checkbox" class="form-check-input reapply-checkbox" value="${accId}" data-ipo="${result.ipo}" checked></td>
+                    <td><strong>${result.account}</strong></td>
+                    <td>${result.ipo}</td>
+                    <td><span style="background: #f44336; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Apply</strong></span></td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table></div>`;
         
-        html += `
-            <tr>
-                <td><strong>${result.account}</strong></td>
-                <td>${result.ipo}</td>
-                <td>${statusBadge}</td>
-                <td>${buttonBadge}</td>
-            </tr>
-        `;
-    });
+        // Render Re-apply buttons per unique IPO found in unapplied
+        Object.keys(unappliedByIpo).forEach(ipoName => {
+            html += `
+                <div class="mt-2 mb-3">
+                    <button class="btn btn-success btn-sm" onclick="reapplySelectedIpos('${ipoName}')">
+                        <i class="fas fa-paper-plane"></i> Re-apply Selected for ${ipoName}
+                    </button>
+                </div>
+            `;
+        });
+    } else {
+        html += `<div class="alert alert-success text-center">No unapplied accounts found!</div>`;
+    }
     
-    html += `
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
+    html += `</div><!-- Applied Tab -->
+             <div class="tab-pane fade" id="pills-applied" role="tabpanel">`;
+             
+    if (appliedResults.length > 0) {
+        html += `<div class="table-responsive"><table class="table table-sm table-hover"><thead class="table-success"><tr><th>Account</th><th>IPO Name</th><th>Website Button</th></tr></thead><tbody>`;
+        appliedResults.forEach(result => {
+            html += `<tr><td><strong>${result.account}</strong></td><td>${result.ipo}</td><td><span style="background: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;"><strong>Edit</strong></span></td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    } else {
+        html += `<div class="alert alert-info text-center">No applied accounts found.</div>`;
+    }
+    
+    html += `</div><!-- Failed Tab -->
+             <div class="tab-pane fade" id="pills-failed" role="tabpanel">`;
+             
+    if (failedResults.length > 0) {
+        html += `<div class="table-responsive"><table class="table table-sm table-hover"><thead class="table-danger"><tr><th>Account</th><th>IPO Name</th><th>Status/Error</th></tr></thead><tbody>`;
+        failedResults.forEach(result => {
+            html += `<tr><td><strong>${result.account}</strong></td><td>${result.ipo}</td><td>${result.status}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    } else {
+        html += `<div class="alert alert-success text-center">No verification failures!</div>`;
+    }
+    
+    html += `</div></div></div>`;
     
     bulkVerifyResult.innerHTML = html;
+}
+
+function reapplySelectedIpos(ipoName) {
+    // Collect checked accounts specifically for this IPO
+    const checkboxes = document.querySelectorAll('.reapply-checkbox:checked');
+    const accountIds = [];
+    
+    checkboxes.forEach(cb => {
+        if (cb.getAttribute('data-ipo') === ipoName) {
+            accountIds.push(cb.value);
+        }
+    });
+    
+    if (accountIds.length === 0) {
+        showAlert('No accounts selected for re-application', 'warning');
+        return;
+    }
+    
+    // Switch to Bulk Apply tab
+    const applyTabLink = document.getElementById('apply-tab');
+    if (applyTabLink) {
+        // Use Bootstrap tab API to switch
+        const tab = new bootstrap.Tab(applyTabLink);
+        tab.show();
+    }
+    
+    // Pre-fill the bulk apply form and trigger
+    document.querySelectorAll('.account-selector').forEach(cb => {
+        cb.checked = accountIds.includes(cb.value);
+    });
+    updateSelectedCount();
+    
+    const bulkApplyIpoNameInput = document.getElementById('bulkApplyIpoName');
+    if (bulkApplyIpoNameInput) {
+        let optionExists = false;
+        Array.from(bulkApplyIpoNameInput.options).forEach(opt => {
+            if (opt.value === ipoName) optionExists = true;
+        });
+        if (!optionExists) {
+            bulkApplyIpoNameInput.innerHTML += `<option value="${ipoName}">${ipoName}</option>`;
+        }
+        bulkApplyIpoNameInput.value = ipoName;
+    }
+    
+    // Auto start after a short delay to allow tab switch animation
+    setTimeout(() => {
+        startBulkApplication();
+    }, 500);
 }
 
 // Handle Enter key in forms
@@ -1377,3 +1471,73 @@ document.addEventListener('keypress', (e) => {
         saveAccount();
     }
 });
+
+// ===== FETCH ACTIVE IPOS =====
+
+async function loadActiveIPOs() {
+    const verifySelect = document.getElementById('verifyIpoName');
+    const bulkVerifySelect = document.getElementById('bulkVerifyIpoName');
+    const bulkApplySelect = document.getElementById('bulkApplyIpoName');
+    
+    // Disable and show loading
+    if (verifySelect) {
+        verifySelect.innerHTML = '<option value="">-- Loading... Please wait (~15s) --</option>';
+        verifySelect.disabled = true;
+    }
+    if (bulkVerifySelect) {
+        bulkVerifySelect.innerHTML = '<option value="">-- Loading... Please wait (~15s) --</option>';
+        bulkVerifySelect.disabled = true;
+    }
+    if (bulkApplySelect) {
+        bulkApplySelect.innerHTML = '<option value="">-- Loading... Please wait (~15s) --</option>';
+        bulkApplySelect.disabled = true;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/active-ipos`);
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            const ipos = result.ipos;
+            
+            if (ipos.length === 0) {
+                showAlert('No active IPOs found on Meroshare.', 'info');
+                const noOption = '<option value="">-- No active IPOs found --</option>';
+                if (verifySelect) verifySelect.innerHTML = noOption;
+                if (bulkVerifySelect) bulkVerifySelect.innerHTML = '<option value="">-- Verify all from history --</option>' + noOption;
+                if (bulkApplySelect) bulkApplySelect.innerHTML = '<option value="">-- Apply for all available --</option>' + noOption;
+            } else {
+                showAlert(`Found ${ipos.length} active IPOs!`, 'success');
+                
+                let optionsHtml = '';
+                ipos.forEach(ipo => {
+                    optionsHtml += `<option value="${ipo}">${ipo}</option>`;
+                });
+                
+                if (verifySelect) {
+                    verifySelect.innerHTML = '<option value="">-- Select an IPO --</option>' + optionsHtml;
+                }
+                if (bulkVerifySelect) {
+                    bulkVerifySelect.innerHTML = '<option value="">-- Verify all from history --</option>' + optionsHtml;
+                }
+                if (bulkApplySelect) {
+                    bulkApplySelect.innerHTML = '<option value="">-- Apply for all available --</option>' + optionsHtml;
+                }
+            }
+        } else {
+            throw new Error(result.error || 'Failed to fetch active IPOs');
+        }
+    } catch (error) {
+        console.error('Error loading active IPOs:', error);
+        showAlert('Error: ' + error.message, 'danger');
+        
+        const errorOption = '<option value="">-- Error loading IPOs --</option>';
+        if (verifySelect) verifySelect.innerHTML = errorOption;
+        if (bulkVerifySelect) bulkVerifySelect.innerHTML = '<option value="">-- Verify all from history --</option>';
+        if (bulkApplySelect) bulkApplySelect.innerHTML = '<option value="">-- Apply for all available --</option>';
+    } finally {
+        if (verifySelect) verifySelect.disabled = false;
+        if (bulkVerifySelect) bulkVerifySelect.disabled = false;
+        if (bulkApplySelect) bulkApplySelect.disabled = false;
+    }
+}
