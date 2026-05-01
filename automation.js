@@ -673,31 +673,59 @@ export async function verifyIPOStatusLive(account, ipoName) {
         console.log(`Logging in as ${account.name}...`);
         await page.goto('https://meroshare.cdsc.com.np/', { waitUntil: 'networkidle2', timeout: 10000 });
         
-        // Wait for DP dropdown
+        // Wait for the page to load
         await page.waitForSelector('select.select2-hidden-accessible', { timeout: 5000 });
         
-        // Select DP
-        const dpSelect = 'select.select2-hidden-accessible';
-        await page.select(dpSelect, account.dp);
+        // Select DP from dropdown (Select2)
+        await page.click('.select2-selection--single');
+        await page.waitForSelector('.select2-results__option', { timeout: 5000 });
+        
+        // Click the option with the DP value
+        const optionToClick = await page.evaluate((dpValue) => {
+            const options = Array.from(document.querySelectorAll('.select2-results__option'));
+            const option = options.find(opt => opt.textContent.includes(dpValue));
+            return option ? option.getAttribute('data-select2-id') : null;
+        }, `(${account.dp})`);
+        
+        if (optionToClick) {
+            await page.click(`[data-select2-id="${optionToClick}"]`);
+        }
+        
+        // Wait for dropdown to close
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Select Account
-        const accountSelect = 'select.select2-hidden-accessible:nth-of-type(2)';
-        const accountNumber = `${account.dp} - ${account.name}`;
-        await page.select(accountSelect, account.crn_number);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Enter username
+        await page.type('#username', account.username, { delay: 50 });
         
-        // Enter Username
-        await page.type('input[placeholder*="username"]', account.username, { delay: 50 });
+        // Enter password
+        await page.type('input[name="password"]', account.password, { delay: 50 });
         
-        // Enter Password
-        await page.type('input[placeholder*="password"]', account.password, { delay: 50 });
+        // Wait for login button to be visible and clickable
+        await page.waitForSelector('button.sign-in', { timeout: 5000 });
         
-        // Click login
-        await page.click('button[type="submit"]');
-        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
+        // Scroll to button if needed
+        await page.evaluate(() => {
+            const btn = document.querySelector('button.sign-in');
+            if (btn) btn.scrollIntoView();
+        });
         
-        console.log(`✓ Logged in successfully`);
+        // Wait a bit more for any animations
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Click login button with retry logic
+        try {
+            await page.click('button.sign-in');
+            console.log('✓ Login button clicked');
+        } catch (error) {
+            console.log('First click failed, trying with focus and enter...');
+            await page.focus('button.sign-in');
+            await page.keyboard.press('Enter');
+        }
+        
+        // Wait for navigation to complete
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => console.log('Navigation timeout'));
+        
+        console.log('✓ Login successful!');
         
         // ===== NAVIGATE TO ASBA =====
         console.log(`Navigating to ASBA page...`);
